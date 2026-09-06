@@ -12,16 +12,17 @@ app.get("/", (req, res) => {
 });
 
 app.post("/webhook", async (req, res) => {
-  // Reply to 360dialog immediately
   res.sendStatus(200);
 
   try {
-    const messages = req.body?.messages;
+    const messages =
+      req.body?.messages ||
+      req.body?.entry?.[0]?.changes?.[0]?.value?.messages;
+
     if (!messages || !messages.length) return;
 
     const message = messages[0];
 
-    // Only handle text messages
     if (message.type !== "text") return;
 
     const from = message.from;
@@ -34,7 +35,7 @@ app.post("/webhook", async (req, res) => {
       return;
     }
 
-    // Send message to Gemini
+    // Send user message to Gemini
     const geminiResponse = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
       {
@@ -45,7 +46,11 @@ app.post("/webhook", async (req, res) => {
         body: JSON.stringify({
           contents: [
             {
-              parts: [{ text }],
+              parts: [
+                {
+                  text: text,
+                },
+              ],
             },
           ],
         }),
@@ -69,11 +74,14 @@ app.post("/webhook", async (req, res) => {
         .join("")
         .trim();
 
-    if (!reply) return;
+    if (!reply) {
+      console.error("No Gemini reply");
+      return;
+    }
 
-    // Send Gemini reply to WhatsApp through 360dialog
+    // Send Gemini reply through 360dialog Sandbox
     const whatsappResponse = await fetch(
-    "https://waba-sandbox.360dialog.io/v1/messages",
+      "https://waba-sandbox.360dialog.io/v1/messages",
       {
         method: "POST",
         headers: {
@@ -81,6 +89,7 @@ app.post("/webhook", async (req, res) => {
           "D360-API-KEY": D360_API_KEY,
         },
         body: JSON.stringify({
+          messaging_product: "whatsapp",
           recipient_type: "individual",
           to: from,
           type: "text",
@@ -97,7 +106,10 @@ app.post("/webhook", async (req, res) => {
         whatsappResponse.status,
         await whatsappResponse.text()
       );
+      return;
     }
+
+    console.log("Reply sent successfully");
   } catch (error) {
     console.error("Webhook error:", error);
   }
