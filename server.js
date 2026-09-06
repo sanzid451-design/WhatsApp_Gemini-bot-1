@@ -73,7 +73,7 @@ app.post("/webhook", async (req, res) => {
 
     // Send Gemini reply to WhatsApp through 360dialog
     const whatsappResponse = await fetch(
-      "https://waba-v2.360dialog.io/messages",
+    "https://waba-sandbox.360dialog.io/v1/messages",
       {
         method: "POST",
         headers: {
